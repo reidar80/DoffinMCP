@@ -183,6 +183,11 @@ class DoffinApiClient {
     return this.makeRequest<PagedPublicNoticeDto>('/search', queryParams);
   }
 
+  async downloadNotice(doffinId: string): Promise<any> {
+    Logger.info(`Downloading notice: ${doffinId}`);
+    return this.makeRequest<any>(`/download/${doffinId}`);
+  }
+
   // Note: The following methods are for endpoints not documented in the public API
   // They are kept for potential future use but may not work without proper API documentation
 
@@ -337,6 +342,20 @@ class DoffinMcpServer {
         },
       },
       {
+        name: 'download_notice',
+        description: 'Download the complete notice document for a specific Doffin ID. Returns the full notice data including all details and metadata.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            doffinId: {
+              type: 'string',
+              description: 'The Doffin ID of the notice to download (e.g., "2023-100282")',
+            },
+          },
+          required: ['doffinId'],
+        },
+      },
+      {
         name: 'get_notice_details',
         description: '[EXPERIMENTAL] Get detailed information about a specific procurement notice. Note: This endpoint is not documented in the official API and may not work.',
         inputSchema: {
@@ -401,6 +420,9 @@ class DoffinMcpServer {
     switch (name) {
       case 'search_notices':
         return await this.handleSearchNotices(args);
+
+      case 'download_notice':
+        return await this.handleDownloadNotice(args);
 
       case 'get_notice_details':
         return await this.handleGetNoticeDetails(args);
@@ -483,6 +505,37 @@ class DoffinMcpServer {
         {
           type: 'text',
           text: summary,
+        },
+      ],
+    };
+  }
+
+  private async handleDownloadNotice(args: any) {
+    if (!args.doffinId) {
+      throw new Error('doffinId is required');
+    }
+
+    const noticeData = await this.apiClient.downloadNotice(args.doffinId);
+
+    // Format the downloaded notice data for display
+    // The actual structure depends on what the API returns
+    const formattedData = JSON.stringify(noticeData, null, 2);
+
+    const result = [
+      `# Downloaded Notice: ${args.doffinId}`,
+      ``,
+      `## Complete Notice Data`,
+      ``,
+      '```json',
+      formattedData,
+      '```',
+    ].join('\n');
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: result,
         },
       ],
     };

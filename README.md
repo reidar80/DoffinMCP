@@ -144,7 +144,30 @@ Search for active procurement notices about "construction" with estimated value 
 - Lots information (if applicable)
 - Link to Doffin Classic URL
 
-### 2. get_notice_details [EXPERIMENTAL]
+### 2. download_notice
+
+Download the complete notice document for a specific Doffin ID. **This is a fully-supported tool.**
+
+**Parameters:**
+- `doffinId` (string, required): The Doffin ID of the notice to download (e.g., "2023-100282")
+
+**Returns:**
+- Complete notice data in JSON format
+- Full eForm structure with all details
+- All metadata and fields associated with the notice
+
+**Example:**
+```
+Download the complete notice for Doffin ID "2023-100282"
+```
+
+**Use cases:**
+- Get the complete, unfiltered notice data
+- Access all technical details and metadata
+- Retrieve the full eForm XML/JSON structure
+- Offline analysis and processing
+
+### 3. get_notice_details [EXPERIMENTAL]
 
 Get detailed information about a specific procurement notice.
 
@@ -153,7 +176,7 @@ Get detailed information about a specific procurement notice.
 **Parameters:**
 - `noticeId` (string, required): The unique identifier of the notice
 
-### 3. get_notice_documents [EXPERIMENTAL]
+### 4. get_notice_documents [EXPERIMENTAL]
 
 Get a list of all documents attached to a procurement notice.
 
@@ -162,7 +185,7 @@ Get a list of all documents attached to a procurement notice.
 **Parameters:**
 - `noticeId` (string, required): The unique identifier of the notice
 
-### 4. get_cpv_codes [EXPERIMENTAL]
+### 5. get_cpv_codes [EXPERIMENTAL]
 
 Search CPV (Common Procurement Vocabulary) classification codes.
 
@@ -171,7 +194,7 @@ Search CPV (Common Procurement Vocabulary) classification codes.
 **Parameters:**
 - `query` (string, optional): Search term for CPV codes
 
-### 5. get_reference_data [EXPERIMENTAL]
+### 6. get_reference_data [EXPERIMENTAL]
 
 Get reference data for notice types, procedure types, or contract types.
 
@@ -188,6 +211,7 @@ Get reference data for notice types, procedure types, or contract types.
 
 **Documented Endpoints:**
 - `GET /search` - Search procurement notices (fully supported)
+- `GET /download/{doffinId}` - Download complete notice document (fully supported)
 
 **Rate Limiting:** Follow reasonable usage patterns. Check with Doffin for specific rate limits.
 
@@ -321,13 +345,27 @@ Here are some example queries you can make through Claude:
    Find notices with CPV code 45000000 (construction work)
    ```
 
-## API Example
+6. **Download complete notice:**
+   ```
+   Download the complete notice document for Doffin ID "2023-100282"
+   ```
 
-Direct API call example using curl:
+## API Examples
 
+Direct API call examples using curl:
+
+**Search notices:**
 ```bash
 curl -X 'GET' \
   'https://betaapi.doffin.no/public/v2/search?numHitsPerPage=2&page=0&status=ACTIVE' \
+  -H 'Ocp-Apim-Subscription-Key: your-api-key-here' \
+  -H 'Accept: application/json'
+```
+
+**Download notice:**
+```bash
+curl -X 'GET' \
+  'https://betaapi.doffin.no/public/v2/download/2023-100282' \
   -H 'Ocp-Apim-Subscription-Key: your-api-key-here' \
   -H 'Accept: application/json'
 ```
@@ -360,6 +398,7 @@ For issues related to:
 ### Version 2.0.0
 - Updated to use actual Doffin Beta API (betaapi.doffin.no/public/v2)
 - Added API key authentication support
+- Added `download_notice` tool to download complete notice documents
 - Updated parameter names to match official API documentation
 - Added support for estimated value range filtering
 - Added support for multiple filters (types, statuses, CPV codes, locations)
