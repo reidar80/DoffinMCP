@@ -1,6 +1,6 @@
 {
   "name": "doffinmcp",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Doffin MCP server for searching RFP publications",
   "type": "module",
   "main": "build/index.js",
