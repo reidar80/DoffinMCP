@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "doffin": {
+      "command": "node",
+      "args": [
+        "/absolute/path/to/DoffinMCP/build/index.js"
+      ],
+      "env": {
+        "DOFFIN_API_KEY": "your_api_key_here"
+      }
+    }
+  }
+}

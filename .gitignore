@@ -1,22 +1,16 @@
 # Dependencies
 node_modules/
 
-# Build outputs
+# Build output
+build/
 dist/
-*.tsbuildinfo
+*.js
+*.d.ts
+!src/**/*.ts
 
-# Environment
+# Environment variables
 .env
 .env.local
-
-# Logs
-logs/
-*.log
-npm-debug.log*
-
-# OS
-.DS_Store
-Thumbs.db
 
 # IDE
 .vscode/
@@ -24,3 +18,21 @@ Thumbs.db
 *.swp
 *.swo
 *~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing
+coverage/
+.nyc_output/
+
+# Temporary files
+tmp/
+temp/
