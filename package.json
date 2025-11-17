@@ -1,0 +1,32 @@
+{
+  "name": "doffin-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for Norwegian Doffin Public Procurement API",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node --no-warnings=ExperimentalWarning --loader tsx src/index.ts",
+    "dev": "node --no-warnings=ExperimentalWarning --loader tsx src/index.ts"
+  },
+  "keywords": [
+    "mcp",
+    "doffin",
+    "procurement",
+    "norway",
+    "api"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
