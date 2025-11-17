@@ -29,20 +29,16 @@ This server enables AI assistants to search and retrieve information about publi
 
 ## Installation
 
-1. Clone this repository:
+Install the package from npm:
+
 ```bash
-git clone https://github.com/reidar80/DoffinMCP.git
-cd DoffinMCP
+npm install -g doffinmcp
 ```
 
-2. Install dependencies:
-```bash
-npm install
-```
+Or use it directly with npx without installation:
 
-3. Build the project:
 ```bash
-npm run build
+npx doffinmcp
 ```
 
 ## Getting an API Key
@@ -81,8 +77,8 @@ Add this server to your Claude Desktop configuration file:
 {
   "mcpServers": {
     "doffin": {
-      "command": "node",
-      "args": ["/path/to/DoffinMCP/build/index.js"],
+      "command": "npx",
+      "args": ["doffinmcp"],
       "env": {
         "DOFFIN_API_KEY": "your_api_key_here"
       }
@@ -95,7 +91,7 @@ Add this server to your Claude Desktop configuration file:
 
 Run the server directly:
 ```bash
-DOFFIN_API_KEY=your_api_key_here node build/index.js
+DOFFIN_API_KEY=your_api_key_here npx doffinmcp
 ```
 
 The server communicates via stdio following the MCP protocol.
@@ -244,7 +240,7 @@ npm run build
 The server can be tested using the MCP Inspector tool:
 
 ```bash
-npx @modelcontextprotocol/inspector node build/index.js
+npx @modelcontextprotocol/inspector npx doffinmcp
 ```
 
 ## API Reference
