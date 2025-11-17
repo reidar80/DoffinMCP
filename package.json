@@ -7,6 +7,10 @@
   "bin": {
     "doffin-mcp": "build/index.js"
   },
+  "files": [
+    "build/**/*",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc",
     "prepare": "npm run build",
