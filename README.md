@@ -9,17 +9,26 @@ The Doffin API provides access to Norwegian public procurement data, including t
 ## Features
 
 - 🔍 **Search procurement notices** with advanced filtering options
-- 📄 **Retrieve detailed notice information** including requirements and contact details
-- 📎 **Access attached documents** for procurement notices
-- 🏷️ **Search CPV classification codes** for categorizing procurements
-- 📚 **Get reference data** for notice types, procedures, and contract types
-- ✅ **No authentication required** - the Doffin API is publicly accessible
+- 📊 **Support for estimated value ranges** to find contracts by size
+- 🏷️ **Filter by CPV codes, locations, and notice types**
+- 📅 **Date range filtering** for issue and publication dates
+- 🔐 **Secure API key authentication**
 - 🚀 **Built with TypeScript** for type safety and better developer experience
 
 ## Prerequisites
 
 - **Node.js** 18.0.0 or higher
 - **npm** or **yarn** package manager
+- **Doffin API Key** (required for API access)
+
+## Getting an API Key
+
+The Doffin API requires authentication via an API subscription key. To get your key:
+
+1. Visit the [Doffin API Portal](https://betaapi.doffin.no) (or contact Doffin support for access)
+2. Register for an API subscription
+3. Obtain your `Ocp-Apim-Subscription-Key`
+4. Set it as an environment variable (see Configuration below)
 
 ## Installation
 
@@ -34,7 +43,12 @@ cd DoffinMCP
 npm install
 ```
 
-3. Build the project (optional):
+3. Set your API key as an environment variable:
+```bash
+export DOFFIN_API_KEY="your-api-key-here"
+```
+
+4. Build the project (optional):
 ```bash
 npm run build
 ```
@@ -46,12 +60,14 @@ npm run build
 To start the MCP server:
 
 ```bash
+export DOFFIN_API_KEY="your-api-key-here"
 npm start
 ```
 
 For development with auto-reload:
 
 ```bash
+export DOFFIN_API_KEY="your-api-key-here"
 npm run dev
 ```
 
@@ -76,13 +92,18 @@ To use this MCP server with Claude Desktop, add the following configuration to y
         "--loader",
         "tsx",
         "/absolute/path/to/DoffinMCP/src/index.ts"
-      ]
+      ],
+      "env": {
+        "DOFFIN_API_KEY": "your-api-key-here"
+      }
     }
   }
 }
 ```
 
-Replace `/absolute/path/to/DoffinMCP` with the actual path to your project directory.
+**Important:** Replace:
+- `/absolute/path/to/DoffinMCP` with the actual path to your project directory
+- `your-api-key-here` with your actual Doffin API subscription key
 
 After updating the configuration, restart Claude Desktop.
 
@@ -90,90 +111,85 @@ After updating the configuration, restart Claude Desktop.
 
 ### 1. search_notices
 
-Search Norwegian public procurement notices with various filters.
+Search Norwegian public procurement notices with various filters. **This is the primary and fully-supported tool.**
 
 **Parameters:**
-- `query` (string, optional): Free text search across notice titles and descriptions
-- `status` (string, optional): Filter by status - `ACTIVE`, `EXPIRED`, or `AWARDED`
-- `publishedFrom` (string, optional): Filter notices published from this date (ISO format: YYYY-MM-DD)
-- `publishedTo` (string, optional): Filter notices published until this date (ISO format: YYYY-MM-DD)
-- `cpvCodes` (string, optional): Comma-separated list of CPV classification codes
-- `buyerName` (string, optional): Filter by buyer organization name
-- `page` (number, optional): Page number for pagination (0-indexed, default: 0)
-- `size` (number, optional): Number of results per page (default: 20, max: 100)
+- `searchString` (string, optional): Free text search across notice titles and descriptions
+- `numHitsPerPage` (number, optional): Results per page (default: 20)
+- `page` (number, optional): Page number, 0-indexed (default: 0)
+- `sortBy` (string, optional): Sort order - `PUBLICATION_DATE_ASC` or `PUBLICATION_DATE_DESC` (default)
+- `type` (string, optional): Notice type filter (e.g., `"COMPETITION"` or `"COMPETITION,RESULT"` for multiple)
+- `status` (string, optional): Status filter - `ACTIVE`, `EXPIRED`, `AWARDED` (comma-separated for multiple)
+- `cpvCode` (string, optional): CPV classification codes (comma-separated for multiple)
+- `location` (string, optional): Location ID filter (comma-separated for multiple, use `"anyw"` for non-location-specific)
+- `issueDateFrom` (string, optional): Start date for issue date range (format: YYYY-MM-DD)
+- `issueDateTo` (string, optional): End date for issue date range (format: YYYY-MM-DD)
+- `estimatedValueFrom` (number, optional): Minimum estimated value
+- `estimatedValueTo` (number, optional): Maximum estimated value
 
 **Example:**
 ```
-Search for active procurement notices related to "construction" published in the last 30 days
+Search for active procurement notices about "construction" with estimated value between 1000000 and 10000000
 ```
 
-### 2. get_notice_details
+**Response includes:**
+- Notice ID, heading, and type
+- Status, issue date, publication date, deadline
+- Buyer information
+- Location details
+- Estimated value and currency
+- CPV codes
+- Number of received tenders
+- Description preview
+- Lots information (if applicable)
+- Link to Doffin Classic URL
+
+### 2. get_notice_details [EXPERIMENTAL]
 
 Get detailed information about a specific procurement notice.
 
+**Note:** This endpoint is not documented in the official Doffin API and may not be available. It's included for potential future use.
+
 **Parameters:**
 - `noticeId` (string, required): The unique identifier of the notice
 
-**Returns:**
-- Full notice details including description, requirements, contact information, award criteria, and additional information
-
-**Example:**
-```
-Get details for notice ID "2024-123456"
-```
-
-### 3. get_notice_documents
+### 3. get_notice_documents [EXPERIMENTAL]
 
 Get a list of all documents attached to a procurement notice.
 
+**Note:** This endpoint is not documented in the official Doffin API and may not be available.
+
 **Parameters:**
 - `noticeId` (string, required): The unique identifier of the notice
 
-**Returns:**
-- List of documents with names, types, URLs, sizes, and upload dates
-
-**Example:**
-```
-Get all documents for notice ID "2024-123456"
-```
-
-### 4. get_cpv_codes
+### 4. get_cpv_codes [EXPERIMENTAL]
 
 Search CPV (Common Procurement Vocabulary) classification codes.
 
+**Note:** This endpoint is not documented in the official Doffin API and may not be available.
+
 **Parameters:**
-- `query` (string, optional): Search term to find relevant CPV codes
+- `query` (string, optional): Search term for CPV codes
 
-**Returns:**
-- CPV codes with their descriptions
-
-**Example:**
-```
-Search for CPV codes related to "IT services"
-```
-
-### 5. get_reference_data
+### 5. get_reference_data [EXPERIMENTAL]
 
 Get reference data for notice types, procedure types, or contract types.
 
+**Note:** This endpoint is not documented in the official Doffin API and may not be available.
+
 **Parameters:**
-- `type` (string, required): Type of reference data - `notice-types`, `procedure-types`, or `contract-types`
-
-**Returns:**
-- List of reference data with codes, names, and descriptions
-
-**Example:**
-```
-Get all available notice types
-```
+- `type` (string, required): One of `notice-types`, `procedure-types`, or `contract-types`
 
 ## API Information
 
-**Base URL:** `https://api.doffin.no/doffin`
+**Base URL:** `https://betaapi.doffin.no/public/v2`
 
-**Authentication:** None required (public API)
+**Authentication:** Required via `Ocp-Apim-Subscription-Key` header
 
-**Rate Limiting:** Follow reasonable usage patterns. The API is public but should not be abused.
+**Documented Endpoints:**
+- `GET /search` - Search procurement notices (fully supported)
+
+**Rate Limiting:** Follow reasonable usage patterns. Check with Doffin for specific rate limits.
 
 ## Development
 
@@ -212,6 +228,7 @@ The compiled output will be in the `dist/` directory.
 The server includes comprehensive error handling:
 
 - **Parameter validation**: Required parameters are validated before API calls
+- **Authentication errors**: Clear messages when API key is missing or invalid (401/403)
 - **HTTP error handling**: 400, 404, 500 errors are caught and reported clearly
 - **Network errors**: Connection issues are logged and reported
 - **Detailed logging**: All operations are logged to stderr for debugging
@@ -224,31 +241,48 @@ The server logs all operations to stderr in JSON format:
 {
   "timestamp": "2024-01-15T10:30:00.000Z",
   "level": "INFO",
-  "message": "Making request to: https://api.doffin.no/doffin/notices?status=ACTIVE",
+  "message": "Making request to: https://betaapi.doffin.no/public/v2/search?status=ACTIVE",
   "data": {...}
 }
 ```
 
+**Log Levels:**
+- `INFO` - Normal operations
+- `WARN` - Warnings (e.g., missing API key, experimental endpoints)
+- `ERROR` - Errors and failures
+- `DEBUG` - Detailed debugging information
+
 ## Troubleshooting
+
+### Authentication errors (401/403)
+
+- Verify your API key is correct
+- Check that `DOFFIN_API_KEY` environment variable is set
+- Ensure your API subscription is active
+- Contact Doffin support if issues persist
 
 ### Server won't start
 
 1. Ensure Node.js 18+ is installed: `node --version`
 2. Check that all dependencies are installed: `npm install`
 3. Verify the TypeScript files are valid: `npm run build`
+4. Set the API key environment variable
 
 ### Claude Desktop not connecting
 
 1. Verify the config file path is correct for your OS
 2. Ensure the absolute path in the config points to `src/index.ts`
-3. Restart Claude Desktop after configuration changes
-4. Check Claude Desktop logs for error messages
+3. Check that the `DOFFIN_API_KEY` is set in the `env` section
+4. Restart Claude Desktop after configuration changes
+5. Check Claude Desktop logs for error messages
 
 ### API requests failing
 
 1. Check your internet connection
-2. Verify the Doffin API is accessible: `curl https://api.doffin.no/doffin/notices`
-3. Review server logs (stderr) for detailed error messages
+2. Verify the Doffin API is accessible
+3. Check that your API key is valid and not expired
+4. Review server logs (stderr) for detailed error messages
+5. Verify parameter formats (dates as YYYY-MM-DD, numbers as integers)
 
 ### No results from searches
 
@@ -256,6 +290,7 @@ The server logs all operations to stderr in JSON format:
 - Check that date ranges are valid (YYYY-MM-DD format)
 - Verify CPV codes are correct
 - Try searching without filters first
+- Check estimated value ranges are reasonable
 
 ## Examples
 
@@ -266,25 +301,36 @@ Here are some example queries you can make through Claude:
    Search for active procurement notices with "construction" in the title
    ```
 
-2. **Get detailed information:**
+2. **Find high-value contracts:**
    ```
-   Show me the full details for notice 2024-123456
-   ```
-
-3. **Find notices by organization:**
-   ```
-   Search for procurement notices from "Oslo Kommune"
+   Search for notices with estimated value between 5000000 and 50000000
    ```
 
-4. **Browse by category:**
+3. **Filter by date range:**
    ```
-   Search for CPV codes related to "software development" and then find related notices
+   Find procurement notices issued in the last 30 days
    ```
 
-5. **Check deadline information:**
+4. **Search by location and type:**
    ```
-   Find all active notices with deadlines in the next 7 days
+   Search for ACTIVE notices in Oslo with type COMPETITION
    ```
+
+5. **Filter by CPV code:**
+   ```
+   Find notices with CPV code 45000000 (construction work)
+   ```
+
+## API Example
+
+Direct API call example using curl:
+
+```bash
+curl -X 'GET' \
+  'https://betaapi.doffin.no/public/v2/search?numHitsPerPage=2&page=0&status=ACTIVE' \
+  -H 'Ocp-Apim-Subscription-Key: your-api-key-here' \
+  -H 'Accept: application/json'
+```
 
 ## Contributing
 
@@ -297,6 +343,7 @@ MIT License - see LICENSE file for details
 ## Resources
 
 - [Doffin Official Website](https://doffin.no/)
+- [Doffin Beta API](https://betaapi.doffin.no)
 - [Model Context Protocol Documentation](https://modelcontextprotocol.io/)
 - [MCP TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk)
 
@@ -304,6 +351,21 @@ MIT License - see LICENSE file for details
 
 For issues related to:
 - **This MCP server**: Open an issue in this repository
-- **Doffin API**: Contact Doffin support
+- **Doffin API access/keys**: Contact Doffin support
 - **MCP protocol**: See MCP documentation
 - **Claude Desktop**: Contact Anthropic support
+
+## Changelog
+
+### Version 2.0.0
+- Updated to use actual Doffin Beta API (betaapi.doffin.no/public/v2)
+- Added API key authentication support
+- Updated parameter names to match official API documentation
+- Added support for estimated value range filtering
+- Added support for multiple filters (types, statuses, CPV codes, locations)
+- Marked undocumented endpoints as experimental
+- Improved error handling and logging
+- Updated response formatting to include all available fields
+
+### Version 1.0.0
+- Initial release with assumed API structure

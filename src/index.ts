@@ -3,6 +3,7 @@
 /**
  * Doffin MCP Server
  * Provides access to Norwegian public procurement notices via the Doffin API
+ * Based on https://betaapi.doffin.no/public/v2/
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -13,17 +14,17 @@ import {
   Tool,
 } from '@modelcontextprotocol/sdk/types.js';
 import {
-  DoffinNotice,
+  PagedPublicNoticeDto,
+  PublicNoticeHit,
+  SearchNoticesParams,
   DoffinNoticeDetails,
   DoffinDocument,
-  DoffinSearchResponse,
   CpvCode,
   ReferenceData,
-  SearchNoticesParams,
-  ApiError,
 } from './types.js';
 
-const API_BASE_URL = 'https://api.doffin.no/doffin';
+const API_BASE_URL = 'https://betaapi.doffin.no/public/v2';
+const API_KEY = process.env.DOFFIN_API_KEY || '';
 
 /**
  * Logger utility
@@ -62,21 +63,32 @@ class Logger {
  */
 class DoffinApiClient {
   private baseUrl: string;
+  private apiKey: string;
 
-  constructor(baseUrl: string = API_BASE_URL) {
+  constructor(baseUrl: string = API_BASE_URL, apiKey: string = API_KEY) {
     this.baseUrl = baseUrl;
+    this.apiKey = apiKey;
+
+    if (!this.apiKey) {
+      Logger.warn('No API key provided. Set DOFFIN_API_KEY environment variable for authenticated access.');
+    }
   }
 
   private async makeRequest<T>(
     endpoint: string,
-    params?: Record<string, string>
+    params?: Record<string, string | string[]>
   ): Promise<T> {
     const url = new URL(`${this.baseUrl}${endpoint}`);
 
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
-          url.searchParams.append(key, value);
+          if (Array.isArray(value)) {
+            // Handle array parameters (e.g., multiple types, statuses, cpvCodes)
+            value.forEach((v) => url.searchParams.append(key, v));
+          } else {
+            url.searchParams.append(key, value);
+          }
         }
       });
     }
@@ -84,12 +96,18 @@ class DoffinApiClient {
     Logger.info(`Making request to: ${url.toString()}`);
 
     try {
+      const headers: Record<string, string> = {
+        'Accept': 'application/json',
+        'User-Agent': 'DoffinMCPServer/1.0',
+      };
+
+      if (this.apiKey) {
+        headers['Ocp-Apim-Subscription-Key'] = this.apiKey;
+      }
+
       const response = await fetch(url.toString(), {
         method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'DoffinMCPServer/1.0',
-        },
+        headers,
       });
 
       if (!response.ok) {
@@ -99,6 +117,12 @@ class DoffinApiClient {
           status: response.status,
           error: errorText
         });
+
+        if (response.status === 401 || response.status === 403) {
+          throw new Error(
+            `Authentication failed. Please set a valid DOFFIN_API_KEY environment variable. Get your API key from the Doffin API portal.`
+          );
+        }
 
         throw new Error(
           `API request failed: ${response.status} ${response.statusText}. ${errorText}`
@@ -116,35 +140,70 @@ class DoffinApiClient {
     }
   }
 
-  async searchNotices(params: SearchNoticesParams): Promise<DoffinSearchResponse> {
-    const queryParams: Record<string, string> = {};
+  async searchNotices(params: SearchNoticesParams): Promise<PagedPublicNoticeDto> {
+    const queryParams: Record<string, string | string[]> = {};
 
-    if (params.query) queryParams.query = params.query;
-    if (params.status) queryParams.status = params.status;
-    if (params.publishedFrom) queryParams.publishedFrom = params.publishedFrom;
-    if (params.publishedTo) queryParams.publishedTo = params.publishedTo;
-    if (params.cpvCodes) queryParams.cpvCodes = params.cpvCodes;
-    if (params.buyerName) queryParams.buyerName = params.buyerName;
-    if (params.page !== undefined) queryParams.page = params.page.toString();
-    if (params.size !== undefined) queryParams.size = Math.min(params.size, 100).toString();
+    if (params.numHitsPerPage !== undefined) {
+      queryParams.numHitsPerPage = params.numHitsPerPage.toString();
+    }
+    if (params.page !== undefined) {
+      queryParams.page = params.page.toString();
+    }
+    if (params.sortBy) {
+      queryParams.sortBy = params.sortBy;
+    }
+    if (params.searchString) {
+      queryParams.searchString = params.searchString;
+    }
+    if (params.type) {
+      queryParams.type = Array.isArray(params.type) ? params.type : [params.type];
+    }
+    if (params.status) {
+      queryParams.status = Array.isArray(params.status) ? params.status : [params.status];
+    }
+    if (params.cpvCode) {
+      queryParams.cpvCode = Array.isArray(params.cpvCode) ? params.cpvCode : [params.cpvCode];
+    }
+    if (params.location) {
+      queryParams.location = Array.isArray(params.location) ? params.location : [params.location];
+    }
+    if (params.issueDateFrom) {
+      queryParams.issueDateFrom = params.issueDateFrom;
+    }
+    if (params.issueDateTo) {
+      queryParams.issueDateTo = params.issueDateTo;
+    }
+    if (params.estimatedValueFrom !== undefined) {
+      queryParams.estimatedValueFrom = params.estimatedValueFrom.toString();
+    }
+    if (params.estimatedValueTo !== undefined) {
+      queryParams.estimatedValueTo = params.estimatedValueTo.toString();
+    }
 
-    return this.makeRequest<DoffinSearchResponse>('/notices', queryParams);
+    return this.makeRequest<PagedPublicNoticeDto>('/search', queryParams);
   }
 
+  // Note: The following methods are for endpoints not documented in the public API
+  // They are kept for potential future use but may not work without proper API documentation
+
   async getNoticeDetails(noticeId: string): Promise<DoffinNoticeDetails> {
+    Logger.warn('get_notice_details: This endpoint is not documented in the public API and may not work.');
     return this.makeRequest<DoffinNoticeDetails>(`/notices/${noticeId}`);
   }
 
   async getNoticeDocuments(noticeId: string): Promise<DoffinDocument[]> {
+    Logger.warn('get_notice_documents: This endpoint is not documented in the public API and may not work.');
     return this.makeRequest<DoffinDocument[]>(`/notices/${noticeId}/documents`);
   }
 
   async getCpvCodes(query?: string): Promise<CpvCode[]> {
+    Logger.warn('get_cpv_codes: This endpoint is not documented in the public API and may not work.');
     const params = query ? { query } : {};
     return this.makeRequest<CpvCode[]>('/reference/cpv', params);
   }
 
   async getReferenceData(type: string): Promise<ReferenceData[]> {
+    Logger.warn('get_reference_data: This endpoint is not documented in the public API and may not work.');
     return this.makeRequest<ReferenceData[]>(`/reference/${type}`);
   }
 }
@@ -160,7 +219,7 @@ class DoffinMcpServer {
     this.server = new Server(
       {
         name: 'doffin-mcp-server',
-        version: '1.0.0',
+        version: '2.0.0',
       },
       {
         capabilities: {
@@ -220,51 +279,66 @@ class DoffinMcpServer {
     return [
       {
         name: 'search_notices',
-        description: 'Search Norwegian public procurement notices with filters. Returns a paginated list of notices matching the search criteria.',
+        description: 'Search Norwegian public procurement notices with filters. Returns a paginated list of notices matching the search criteria. This is the primary tool for finding procurement opportunities.',
         inputSchema: {
           type: 'object',
           properties: {
-            query: {
+            searchString: {
               type: 'string',
               description: 'Free text search across notice titles and descriptions',
             },
-            status: {
-              type: 'string',
-              enum: ['ACTIVE', 'EXPIRED', 'AWARDED'],
-              description: 'Filter by notice status',
-            },
-            publishedFrom: {
-              type: 'string',
-              description: 'Filter notices published from this date (ISO format: YYYY-MM-DD)',
-            },
-            publishedTo: {
-              type: 'string',
-              description: 'Filter notices published until this date (ISO format: YYYY-MM-DD)',
-            },
-            cpvCodes: {
-              type: 'string',
-              description: 'Comma-separated list of CPV classification codes',
-            },
-            buyerName: {
-              type: 'string',
-              description: 'Filter by buyer organization name',
+            numHitsPerPage: {
+              type: 'number',
+              description: 'Total number of results (hits) displayed on a single page',
+              default: 20,
             },
             page: {
               type: 'number',
-              description: 'Page number for pagination (0-indexed)',
+              description: 'The current page of results (0-indexed)',
               default: 0,
             },
-            size: {
+            sortBy: {
+              type: 'string',
+              description: 'Sort property. Options: PUBLICATION_DATE_ASC, PUBLICATION_DATE_DESC (default)',
+            },
+            type: {
+              type: 'string',
+              description: 'Notice type filter. For multiple types, use comma-separated values (e.g., "COMPETITION,RESULT")',
+            },
+            status: {
+              type: 'string',
+              description: 'Notice status filter. Options: ACTIVE, EXPIRED, AWARDED. For multiple, use comma-separated values',
+            },
+            cpvCode: {
+              type: 'string',
+              description: 'CPV classification codes. For multiple codes, use comma-separated values',
+            },
+            location: {
+              type: 'string',
+              description: 'Location ID filter. For multiple locations, use comma-separated values. Use "anyw" for non-location-specific notices',
+            },
+            issueDateFrom: {
+              type: 'string',
+              description: 'Starting date in issue date range (format: YYYY-MM-DD)',
+            },
+            issueDateTo: {
+              type: 'string',
+              description: 'End date in issue date range (format: YYYY-MM-DD)',
+            },
+            estimatedValueFrom: {
               type: 'number',
-              description: 'Number of results per page (max 100)',
-              default: 20,
+              description: 'Minimum estimated value in range (numeric value)',
+            },
+            estimatedValueTo: {
+              type: 'number',
+              description: 'Maximum estimated value in range (numeric value)',
             },
           },
         },
       },
       {
         name: 'get_notice_details',
-        description: 'Get detailed information about a specific procurement notice including full description, requirements, contact information, and award criteria.',
+        description: '[EXPERIMENTAL] Get detailed information about a specific procurement notice. Note: This endpoint is not documented in the official API and may not work.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -278,7 +352,7 @@ class DoffinMcpServer {
       },
       {
         name: 'get_notice_documents',
-        description: 'Get a list of all documents attached to a procurement notice, including tender documents, specifications, and annexes.',
+        description: '[EXPERIMENTAL] Get a list of all documents attached to a procurement notice. Note: This endpoint is not documented in the official API and may not work.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -292,7 +366,7 @@ class DoffinMcpServer {
       },
       {
         name: 'get_cpv_codes',
-        description: 'Search CPV (Common Procurement Vocabulary) classification codes used to categorize procurement contracts.',
+        description: '[EXPERIMENTAL] Search CPV (Common Procurement Vocabulary) classification codes. Note: This endpoint is not documented in the official API and may not work.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -305,7 +379,7 @@ class DoffinMcpServer {
       },
       {
         name: 'get_reference_data',
-        description: 'Get reference data such as notice types, procedure types, and contract types used in the procurement system.',
+        description: '[EXPERIMENTAL] Get reference data such as notice types, procedure types, and contract types. Note: This endpoint is not documented in the official API and may not work.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -346,30 +420,50 @@ class DoffinMcpServer {
   }
 
   private async handleSearchNotices(args: any) {
+    // Parse comma-separated values into arrays
+    const parseCommaSeparated = (value: string | undefined): string[] | undefined => {
+      if (!value) return undefined;
+      return value.split(',').map(v => v.trim()).filter(v => v.length > 0);
+    };
+
     const params: SearchNoticesParams = {
-      query: args.query,
-      status: args.status,
-      publishedFrom: args.publishedFrom,
-      publishedTo: args.publishedTo,
-      cpvCodes: args.cpvCodes,
-      buyerName: args.buyerName,
-      page: args.page || 0,
-      size: args.size || 20,
+      searchString: args.searchString,
+      numHitsPerPage: args.numHitsPerPage,
+      page: args.page,
+      sortBy: args.sortBy,
+      type: parseCommaSeparated(args.type),
+      status: parseCommaSeparated(args.status),
+      cpvCode: parseCommaSeparated(args.cpvCode),
+      location: parseCommaSeparated(args.location),
+      issueDateFrom: args.issueDateFrom,
+      issueDateTo: args.issueDateTo,
+      estimatedValueFrom: args.estimatedValueFrom,
+      estimatedValueTo: args.estimatedValueTo,
     };
 
     const response = await this.apiClient.searchNotices(params);
 
-    const formattedResults = response.content.map((notice) => {
+    const formattedResults = response.hits.map((notice: PublicNoticeHit) => {
+      const buyers = notice.buyer.map(b => b.name).join(', ');
+      const locations = notice.locationId.length > 0 ? notice.locationId.join(', ') : 'N/A';
+      const types = notice.allTypes.join(', ');
+
       return [
         `**Notice ID:** ${notice.id}`,
-        `**Title:** ${notice.title}`,
-        `**Status:** ${notice.status}`,
-        `**Published:** ${notice.publishedDate}`,
+        `**Heading:** ${notice.heading}`,
+        `**Type:** ${types}`,
+        notice.status ? `**Status:** ${notice.status}` : null,
+        `**Issue Date:** ${notice.issueDate}`,
+        `**Publication Date:** ${notice.publicationDate}`,
         notice.deadline ? `**Deadline:** ${notice.deadline}` : null,
-        `**Buyer:** ${notice.buyer.name}`,
-        notice.buyer.city ? `**Location:** ${notice.buyer.city}, ${notice.buyer.country || ''}` : null,
-        notice.cpvCodes && notice.cpvCodes.length > 0 ? `**CPV Codes:** ${notice.cpvCodes.join(', ')}` : null,
+        `**Buyer:** ${buyers}`,
+        `**Location:** ${locations}`,
+        notice.estimatedValue ? `**Estimated Value:** ${notice.estimatedValue.amount.toLocaleString()} ${notice.estimatedValue.currencyCode}` : null,
+        notice.cpvCodes.length > 0 ? `**CPV Codes:** ${notice.cpvCodes.join(', ')}` : null,
+        notice.receivedTenders !== undefined ? `**Received Tenders:** ${notice.receivedTenders}` : null,
         notice.description ? `**Description:** ${notice.description.substring(0, 200)}${notice.description.length > 200 ? '...' : ''}` : null,
+        notice.lots && notice.lots.length > 0 ? `**Lots:** ${notice.lots.length}` : null,
+        notice.doffinClassicUrl ? `**Doffin URL:** ${notice.doffinClassicUrl}` : null,
         '---',
       ].filter(Boolean).join('\n');
     }).join('\n\n');
@@ -377,8 +471,9 @@ class DoffinMcpServer {
     const summary = [
       `# Search Results`,
       ``,
-      `Found **${response.totalElements}** notices (Page ${response.number + 1} of ${response.totalPages})`,
-      `Showing ${response.content.length} results`,
+      `**Total Hits:** ${response.numHitsTotal}`,
+      `**Accessible Hits:** ${response.numHitsAccessible}`,
+      `**Showing:** ${response.hits.length} results`,
       ``,
       formattedResults,
     ].join('\n');
@@ -400,25 +495,26 @@ class DoffinMcpServer {
 
     const notice = await this.apiClient.getNoticeDetails(args.noticeId);
 
+    const buyers = notice.buyer.map(b => `- ${b.name} (${b.organizationId})`).join('\n');
+    const types = notice.allTypes.join(', ');
+
     const details = [
-      `# Notice Details: ${notice.title}`,
+      `# Notice Details: ${notice.heading}`,
       ``,
       `**Notice ID:** ${notice.id}`,
-      `**Status:** ${notice.status}`,
-      `**Published Date:** ${notice.publishedDate}`,
+      `**Type:** ${types}`,
+      notice.status ? `**Status:** ${notice.status}` : null,
+      `**Issue Date:** ${notice.issueDate}`,
+      `**Publication Date:** ${notice.publicationDate}`,
       notice.deadline ? `**Deadline:** ${notice.deadline}` : null,
       ``,
       `## Buyer Information`,
-      `**Name:** ${notice.buyer.name}`,
-      notice.buyer.organizationNumber ? `**Organization Number:** ${notice.buyer.organizationNumber}` : null,
-      notice.buyer.city ? `**Location:** ${notice.buyer.city}, ${notice.buyer.country || ''}` : null,
+      buyers,
       ``,
       `## Procurement Details`,
-      notice.type ? `**Notice Type:** ${notice.type}` : null,
-      notice.procedureType ? `**Procedure Type:** ${notice.procedureType}` : null,
-      notice.contractType ? `**Contract Type:** ${notice.contractType}` : null,
-      notice.cpvCodes && notice.cpvCodes.length > 0 ? `**CPV Codes:** ${notice.cpvCodes.join(', ')}` : null,
-      notice.estimatedValue ? `**Estimated Value:** ${notice.estimatedValue.amount} ${notice.estimatedValue.currency}` : null,
+      notice.estimatedValue ? `**Estimated Value:** ${notice.estimatedValue.amount.toLocaleString()} ${notice.estimatedValue.currencyCode}` : null,
+      notice.cpvCodes.length > 0 ? `**CPV Codes:** ${notice.cpvCodes.join(', ')}` : null,
+      notice.locationId.length > 0 ? `**Locations:** ${notice.locationId.join(', ')}` : null,
       ``,
       `## Description`,
       notice.description || 'No description available',
@@ -426,6 +522,7 @@ class DoffinMcpServer {
       notice.requirements ? `## Requirements\n${notice.requirements}\n` : null,
       notice.awardCriteria ? `## Award Criteria\n${notice.awardCriteria}\n` : null,
       notice.contactInfo ? `## Contact Information\n${notice.contactInfo.name ? `**Name:** ${notice.contactInfo.name}\n` : ''}${notice.contactInfo.email ? `**Email:** ${notice.contactInfo.email}\n` : ''}${notice.contactInfo.phone ? `**Phone:** ${notice.contactInfo.phone}\n` : ''}` : null,
+      notice.lots && notice.lots.length > 0 ? `## Lots\n${notice.lots.map(lot => `### ${lot.heading}\n${lot.description}\n**Winners:** ${lot.winner.map(w => w.name).join(', ')}`).join('\n\n')}` : null,
       notice.additionalInfo ? `## Additional Information\n${notice.additionalInfo}` : null,
     ].filter(Boolean).join('\n');
 
@@ -577,6 +674,16 @@ class DoffinMcpServer {
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
     Logger.info('Doffin MCP Server started successfully');
+
+    if (!API_KEY) {
+      Logger.warn('');
+      Logger.warn('╔════════════════════════════════════════════════════════════════╗');
+      Logger.warn('║  WARNING: No API key configured!                              ║');
+      Logger.warn('║  Set DOFFIN_API_KEY environment variable for API access.      ║');
+      Logger.warn('║  Get your API key from the Doffin API portal.                 ║');
+      Logger.warn('╚════════════════════════════════════════════════════════════════╝');
+      Logger.warn('');
+    }
   }
 }
 

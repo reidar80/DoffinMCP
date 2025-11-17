@@ -1,32 +1,82 @@
 /**
  * Type definitions for the Doffin API
+ * Based on https://betaapi.doffin.no/public/v2/
  */
 
-export interface DoffinNotice {
+export interface Organization {
   id: string;
-  title: string;
-  status: 'ACTIVE' | 'EXPIRED' | 'AWARDED';
-  publishedDate: string;
-  deadline?: string;
-  buyer: {
-    name: string;
-    organizationNumber?: string;
-    city?: string;
-    country?: string;
-  };
-  cpvCodes?: string[];
-  description?: string;
-  type?: string;
-  procedureType?: string;
-  contractType?: string;
-  estimatedValue?: {
-    amount: number;
-    currency: string;
-  };
+  organizationId: string;
+  name: string;
 }
 
-export interface DoffinNoticeDetails extends DoffinNotice {
+export interface EstimatedValue {
+  currencyCode: string;
+  amount: number;
+}
+
+export interface ReceivedTender {
+  type: string;
+  total: number;
+}
+
+export interface Lot {
+  heading: string;
   description: string;
+  winner: Organization[];
+}
+
+export interface PublicNoticeHit {
+  id: string;
+  buyer: Organization[];
+  heading: string;
+  description: string;
+  locationId: string[];
+  estimatedValue?: EstimatedValue;
+  type: string;
+  allTypes: string[];
+  status?: string;
+  issueDate: string;
+  deadline?: string;
+  publicationDate: string;
+  receivedTenders?: number;
+  allReceivedTenders?: ReceivedTender[];
+  cpvCodes: string[];
+  limitedDataFlag?: boolean;
+  doffinClassicUrl?: string;
+  lots?: Lot[];
+}
+
+export interface PagedPublicNoticeDto {
+  numHitsTotal: number;
+  numHitsAccessible: number;
+  hits: PublicNoticeHit[];
+}
+
+export interface SearchNoticesParams {
+  numHitsPerPage?: number;
+  page?: number;
+  sortBy?: string;
+  searchString?: string;
+  type?: string | string[];
+  status?: string | string[];
+  cpvCode?: string | string[];
+  location?: string | string[];
+  issueDateFrom?: string;
+  issueDateTo?: string;
+  estimatedValueFrom?: number;
+  estimatedValueTo?: number;
+}
+
+export interface ApiError {
+  error: string;
+  details?: string;
+  status?: number;
+}
+
+// Note: The following interfaces are for potential endpoints not documented in the API
+// They are kept for potential future use if these endpoints become available
+
+export interface DoffinNoticeDetails extends PublicNoticeHit {
   requirements?: string;
   contactInfo?: {
     name?: string;
@@ -47,14 +97,6 @@ export interface DoffinDocument {
   uploadedDate?: string;
 }
 
-export interface DoffinSearchResponse {
-  content: DoffinNotice[];
-  totalElements: number;
-  totalPages: number;
-  size: number;
-  number: number;
-}
-
 export interface CpvCode {
   code: string;
   description: string;
@@ -65,21 +107,4 @@ export interface ReferenceData {
   code: string;
   name: string;
   description?: string;
-}
-
-export interface SearchNoticesParams {
-  query?: string;
-  status?: 'ACTIVE' | 'EXPIRED' | 'AWARDED';
-  publishedFrom?: string;
-  publishedTo?: string;
-  cpvCodes?: string;
-  buyerName?: string;
-  page?: number;
-  size?: number;
-}
-
-export interface ApiError {
-  error: string;
-  details?: string;
-  status?: number;
 }
