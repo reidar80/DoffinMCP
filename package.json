@@ -15,6 +15,14 @@
   "keywords": ["mcp", "doffin", "rfp", "procurement", "norway"],
   "author": "",
   "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/reidar80/DoffinMCP.git"
+  },
+  "homepage": "https://github.com/reidar80/DoffinMCP#readme",
+  "bugs": {
+    "url": "https://github.com/reidar80/DoffinMCP/issues"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.22.0",
     "zod": "^3.25.76"
