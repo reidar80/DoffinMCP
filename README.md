@@ -8,12 +8,17 @@ This server enables AI assistants to search and retrieve information about publi
 
 ## Features
 
-- Search Doffin procurement notices by keywords
+- **Search** Doffin procurement notices with advanced filters
+- **Download** complete notice documents in JSON format
+- **List** and download all attached documents for a notice
 - Retrieve detailed information about RFPs including:
   - Notice ID and title
   - Publication and deadline dates
   - Buyer/contracting authority information
   - Descriptions and CPV codes
+  - Estimated values and locations
+  - Document attachments
+- **Advanced filtering** by type, status, CPV codes, locations, dates, and values
 - Pagination support for large result sets
 - Error handling and validation
 
@@ -97,29 +102,121 @@ The server communicates via stdio following the MCP protocol.
 
 ## Available Tools
 
-### search_rfp
+### search_notices
 
-Search Doffin for RFP publications and procurement notices.
+Search Norwegian public procurement notices with advanced filters. This is the primary tool for finding procurement opportunities.
 
 **Parameters:**
-- `query` (optional, string): Search query text to filter notices
-- `page` (optional, number): Page number for pagination (default: 1)
-- `pageSize` (optional, number): Number of results per page, max 100 (default: 20)
+- `searchString` (optional, string): Free text search across notice titles and descriptions
+- `numHitsPerPage` (optional, number): Number of results per page (default: 20)
+- `page` (optional, number): Page number, 0-indexed (default: 0)
+- `sortBy` (optional, string): Sort order - `PUBLICATION_DATE_ASC` or `PUBLICATION_DATE_DESC` (default)
+- `type` (optional, string): Notice type filter (e.g., "COMPETITION,RESULT" for multiple)
+- `status` (optional, string): Status filter - `ACTIVE`, `EXPIRED`, `AWARDED`
+- `cpvCode` (optional, string): CPV classification codes (comma-separated for multiple)
+- `location` (optional, string): Location ID filter (use "anyw" for non-location-specific)
+- `issueDateFrom` (optional, string): Start date in YYYY-MM-DD format
+- `issueDateTo` (optional, string): End date in YYYY-MM-DD format
+- `estimatedValueFrom` (optional, number): Minimum estimated value
+- `estimatedValueTo` (optional, number): Maximum estimated value
 
-**Example queries:**
-- "IT services"
-- "construction project"
-- "healthcare equipment"
-- "consulting services"
+**Example:**
+```
+Search for IT services: searchString="IT services"
+Active tenders only: status="ACTIVE"
+Specific location: location="03"
+```
+
+### download_notice
+
+Download the complete notice document for a specific Doffin ID. Returns the full notice data including all details and metadata in JSON format.
+
+**Parameters:**
+- `doffinId` (required, string): The Doffin ID of the notice (e.g., "2023-100282")
+
+**Example:**
+```
+Download notice: doffinId="2023-100282"
+```
+
+### get_notice_documents
+
+**[EXPERIMENTAL]** Get a list of all documents attached to a procurement notice.
+
+Note: This endpoint is not documented in the official API and may not work for all notices.
+
+**Parameters:**
+- `noticeId` (required, string): The unique identifier of the notice
+
+**Returns:**
+- List of documents with name, type, URL, size, and upload date
+
+### download_all_documents
+
+**[EXPERIMENTAL]** Download all documents attached to a procurement notice. This tool fetches the list of documents and downloads each one.
+
+Note: This uses an undocumented endpoint and may not work for all notices.
+
+**Parameters:**
+- `noticeId` (required, string): The unique identifier of the notice
+- `includeContent` (optional, boolean): Whether to include actual file content in the response (default: false). If true, files will be base64 encoded.
+
+**Returns:**
+- Summary of all documents with download status
+- If `includeContent` is true, includes base64-encoded file content
+
+**Example:**
+```
+List documents only: noticeId="2023-100282", includeContent=false
+Download all content: noticeId="2023-100282", includeContent=true
+```
+
+### get_notice_details
+
+**[EXPERIMENTAL]** Get detailed information about a specific procurement notice.
+
+Note: This endpoint is not documented in the official API and may not work.
+
+**Parameters:**
+- `noticeId` (required, string): The unique identifier of the notice
+
+### get_cpv_codes
+
+**[EXPERIMENTAL]** Search CPV (Common Procurement Vocabulary) classification codes.
+
+Note: This endpoint is not documented in the official API and may not work.
+
+**Parameters:**
+- `query` (optional, string): Search term to find relevant CPV codes
+
+### get_reference_data
+
+**[EXPERIMENTAL]** Get reference data such as notice types, procedure types, and contract types.
+
+Note: This endpoint is not documented in the official API and may not work.
+
+**Parameters:**
+- `type` (required, string): The type of reference data - `notice-types`, `procedure-types`, or `contract-types`
 
 ## Example Usage in Claude
 
 Once configured, you can ask Claude questions like:
 
+**Searching:**
 - "Search Doffin for IT consulting RFPs"
 - "Find recent procurement opportunities for construction projects"
-- "What are the latest RFPs in healthcare?"
+- "What are the latest active RFPs in healthcare?"
 - "Show me page 2 of software development tenders"
+- "Find tenders with estimated value over 1 million NOK"
+
+**Downloading:**
+- "Download the complete notice for Doffin ID 2023-100282"
+- "Get all documents attached to notice 2023-100282"
+- "Download all documents for this RFP with their content"
+
+**Analyzing:**
+- "What CPV codes are used for IT services?"
+- "Show me details for notice 2023-100282"
 
 ## Development
 
@@ -128,7 +225,8 @@ Once configured, you can ask Claude questions like:
 ```
 DoffinMCP/
 ├── src/
-│   └── index.ts        # Main server implementation
+│   ├── index.ts        # Main server implementation
+│   └── types.ts        # TypeScript type definitions
 ├── build/              # Compiled JavaScript (generated)
 ├── package.json
 ├── tsconfig.json
@@ -151,9 +249,12 @@ npx @modelcontextprotocol/inspector node build/index.js
 
 ## API Reference
 
-This server uses the Doffin Public API. For more information:
+This server uses the Doffin Public API v2 (`https://betaapi.doffin.no/public/v2`). For more information:
 - [Doffin API Documentation](https://dof-notices-prod-api.developer.azure-api.net/)
 - [Doffin Website](https://www.doffin.no/)
+- [Beta API Endpoint](https://betaapi.doffin.no/public/v2/)
+
+**Note:** Some tools are marked as EXPERIMENTAL because they use undocumented API endpoints. These may not work for all notices or could change without notice.
 
 ## About Doffin
 
